@@ -2,6 +2,8 @@
 
 This is a quick reference for creating the `2z2a_submissions` repository with the folder hierarchy from Materials (no files).
 
+> **Note:** These tools create the folder structure **on your local machine**. To create a GitHub repository, see [GITHUB_REPO_SETUP.md](GITHUB_REPO_SETUP.md) for complete instructions.
+
 ## Fastest Method (Using Pre-generated Script)
 
 ```bash
@@ -52,4 +54,5 @@ The structure includes these main folders:
 
 ## Full Documentation
 
-See `FOLDER_STRUCTURE_TOOL.md` for complete documentation and advanced usage.
+- See [GITHUB_REPO_SETUP.md](GITHUB_REPO_SETUP.md) for **creating a GitHub repository**
+- See [FOLDER_STRUCTURE_TOOL.md](FOLDER_STRUCTURE_TOOL.md) for complete tool documentation and advanced usage
