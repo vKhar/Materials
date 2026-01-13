@@ -103,7 +103,13 @@ def main():
     print()
     
     # Get current directory (Materials repository)
-    source_dir = Path(__file__).parent.resolve()
+    # Use environment variable or script location
+    if len(sys.argv) > 1 and sys.argv[1] == '--source' and len(sys.argv) > 2:
+        source_dir = Path(sys.argv[2]).resolve()
+        sys.argv = [sys.argv[0]] + sys.argv[3:]  # Remove --source and its argument
+    else:
+        source_dir = Path(__file__).parent.resolve()
+    
     print(f"Source directory: {source_dir}")
     print()
     
@@ -129,6 +135,13 @@ def main():
             target_name = sys.argv[2]
         
         target_path = source_dir.parent / target_name
+        
+        # Check if target already exists
+        if target_path.exists():
+            print(f"WARNING: Target path already exists: {target_path}")
+            print("Please remove it first or choose a different name.")
+            return
+        
         print(f"Creating folder structure at: {target_path}")
         print()
         
@@ -159,16 +172,20 @@ def main():
     else:
         # Show usage
         print("Usage:")
-        print(f"  python3 {Path(__file__).name} --create [target_name]")
+        print(f"  python3 {Path(__file__).name} [--source SOURCE_DIR] --create [target_name]")
         print(f"    Create the folder structure in a new directory")
         print()
-        print(f"  python3 {Path(__file__).name} --script [target_name]")
+        print(f"  python3 {Path(__file__).name} [--source SOURCE_DIR] --script [target_name]")
         print(f"    Generate a bash script to create the folder structure")
+        print()
+        print("Options:")
+        print("  --source SOURCE_DIR    Specify source directory (default: script location)")
         print()
         print("Examples:")
         print(f"  python3 {Path(__file__).name} --create")
         print(f"  python3 {Path(__file__).name} --create 2z2a_submissions")
         print(f"  python3 {Path(__file__).name} --script")
+        print(f"  python3 {Path(__file__).name} --source /path/to/repo --create")
         print()
 
 
