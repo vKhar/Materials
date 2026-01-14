@@ -37,13 +37,13 @@ jobs:
           echo "Comparing $BASE_SHA...$HEAD_SHA"
           
           # Get list of modified files (added, modified, renamed)
-          git diff --name-only --diff-filter=AMR "$BASE_SHA" "$HEAD_SHA" > /tmp/modified_files.txt
+          git diff --name-only --diff-filter=AMR "$BASE_SHA" "$HEAD_SHA" > /tmp/modified_files.txt || true
           
           echo "Modified files:"
-          cat /tmp/modified_files.txt
+          cat /tmp/modified_files.txt || echo "No files modified"
           
           # Count files
-          FILE_COUNT=$(wc -l < /tmp/modified_files.txt)
+          FILE_COUNT=$(wc -l < /tmp/modified_files.txt | tr -d ' ')
           echo "file_count=$FILE_COUNT" >> $GITHUB_OUTPUT
       
       - name: Copy files to Working Folder
@@ -51,11 +51,22 @@ jobs:
           # Create Working Folder if it doesn't exist
           mkdir -p "Working Folder"
           
+          # Check if file list exists and is not empty
+          if [ ! -s /tmp/modified_files.txt ]; then
+            echo "No files to copy"
+            exit 0
+          fi
+          
           # Read the list of modified files
           while IFS= read -r file; do
             if [ -f "$file" ]; then
               # Get just the filename
               filename=$(basename "$file")
+              
+              # Check if file already exists in Working Folder
+              if [ -f "Working Folder/$filename" ]; then
+                echo "Warning: Working Folder/$filename already exists, will be overwritten"
+              fi
               
               # Copy to Working Folder
               echo "Copying $file to Working Folder/$filename"
@@ -79,12 +90,19 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            const fileCount = '${{ steps.get-files.outputs.file_count }}';
+            const fileCount = parseInt('${{ steps.get-files.outputs.file_count }}');
             if (fileCount > 0) {
               github.rest.issues.createComment({
                 issue_number: context.issue.number,
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 body: `✅ Automated workflow completed: ${fileCount} file(s) have been copied to the Working Folder.`
+              });
+            } else {
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: `ℹ️ No files to copy to Working Folder in this PR.`
               });
             }
