@@ -11,7 +11,7 @@ Automatically copies files modified in a pull request to the "Working Folder" di
 
 ### Trigger Events
 The workflow runs automatically when:
-- A new pull request is opened against `main` or `master` branch
+- A new pull request is opened against `main`, `master`, or `2026_Jan` branch
 - An existing pull request is updated (synchronized)
 - A closed pull request is reopened
 
