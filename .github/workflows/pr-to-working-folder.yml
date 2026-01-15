@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - master
+      - 2026_Jan
 
 jobs:
   copy-to-working-folder:
