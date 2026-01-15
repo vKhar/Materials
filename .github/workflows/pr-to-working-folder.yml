@@ -151,3 +151,30 @@ jobs:
                 body: `ℹ️ No files to copy to Working Folder in this PR.`
               });
             }
+      
+      - name: Auto-merge PR
+        continue-on-error: true
+        uses: actions/github-script@v6
+        with:
+          script: |
+            try {
+              // Close the PR since files have been copied to Working Folder
+              await github.rest.pulls.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.issue.number,
+                state: 'closed'
+              });
+              
+              // Add a comment explaining the closure
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: `🎉 Pull request automatically closed. All modified files have been copied to the Working Folder in the base branch.`
+              });
+              
+              console.log(`PR #${context.issue.number} has been automatically closed`);
+            } catch (error) {
+              console.error('Error auto-closing PR:', error);
+            }
