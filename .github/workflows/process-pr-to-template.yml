@@ -1,5 +1,8 @@
 name: Process PR to Template Branch
 
+# Security note: This workflow uses pull_request_target to have write permissions
+# for pushing new branches. The workflow only reads files from PRs and does not
+# execute any code from them, making it safe to use with untrusted forks.
 on:
   pull_request_target:
     types: [opened, synchronize, reopened]
