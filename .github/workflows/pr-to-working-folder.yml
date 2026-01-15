@@ -34,6 +34,17 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
       
+      - name: Create new branch with timestamp
+        id: create-branch
+        run: |
+          # Generate branch name with format ddmmyy_hhmm
+          BRANCH_NAME=$(TZ='Asia/Singapore' date +'%d%m%y_%H%M')
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          echo "Creating new branch: $BRANCH_NAME"
+          
+          # Create and checkout new branch from base
+          git checkout -b "$BRANCH_NAME"
+      
       - name: Get modified files from PR
         id: get-files
         run: |
@@ -120,14 +131,16 @@ jobs:
       
       - name: Commit and push changes
         run: |
+          BRANCH_NAME="${{ steps.create-branch.outputs.branch_name }}"
+          
           # Check if there are any changes in Working Folder
           if git diff --quiet "Working Folder/"; then
             echo "No changes to commit"
           else
             git add "Working Folder/"
             git commit -m "Auto-copy PR #${{ github.event.pull_request.number }} files to Working Folder"
-            git push origin ${{ github.event.pull_request.base.ref }}
-            echo "Changes committed and pushed to ${{ github.event.pull_request.base.ref }}"
+            git push origin "$BRANCH_NAME"
+            echo "Changes committed and pushed to $BRANCH_NAME"
           fi
       
       - name: Comment on PR
@@ -136,12 +149,13 @@ jobs:
         with:
           script: |
             const fileCount = parseInt('${{ steps.get-files.outputs.file_count }}');
+            const branchName = '${{ steps.create-branch.outputs.branch_name }}';
             if (fileCount > 0) {
               github.rest.issues.createComment({
                 issue_number: context.issue.number,
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                body: `✅ Automated workflow completed: ${fileCount} file(s) have been copied to the Working Folder.`
+                body: `✅ Automated workflow completed: ${fileCount} file(s) have been copied to the Working Folder in branch \`${branchName}\`.`
               });
             } else {
               github.rest.issues.createComment({
@@ -159,6 +173,8 @@ jobs:
         with:
           script: |
             try {
+              const branchName = '${{ steps.create-branch.outputs.branch_name }}';
+              
               // Close the PR since files have been copied to Working Folder
               await github.rest.pulls.update({
                 owner: context.repo.owner,
@@ -172,7 +188,7 @@ jobs:
                 issue_number: context.issue.number,
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                body: `🎉 Pull request automatically closed. All modified files have been copied to the Working Folder in the base branch.`
+                body: `🎉 Pull request automatically closed. All modified files have been copied to the Working Folder in branch \`${branchName}\`.`
               });
               
               console.log(`PR #${context.issue.number} has been automatically closed`);
