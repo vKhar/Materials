@@ -16,10 +16,10 @@ jobs:
       pull-requests: write
     
     steps:
-      - name: Checkout PR branch
+      - name: Checkout base branch
         uses: actions/checkout@v3
         with:
-          ref: ${{ github.event.pull_request.head.ref }}
+          ref: ${{ github.event.pull_request.base.ref }}
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
       
@@ -31,11 +31,24 @@ jobs:
       - name: Get modified files from PR
         id: get-files
         run: |
-          # Get the base branch
+          # Get the base and head information
           BASE_SHA="${{ github.event.pull_request.base.sha }}"
           HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          HEAD_REPO="${{ github.event.pull_request.head.repo.full_name }}"
+          HEAD_REF="${{ github.event.pull_request.head.ref }}"
           
           echo "Comparing $BASE_SHA...$HEAD_SHA"
+          echo "Head repository: $HEAD_REPO"
+          echo "Head ref: $HEAD_REF"
+          
+          # Fetch the PR head from the source repository (fork or same repo)
+          if [ "$HEAD_REPO" != "${{ github.repository }}" ]; then
+            # For forks, fetch from the fork repository
+            git fetch https://github.com/$HEAD_REPO.git $HEAD_REF:pr-${{ github.event.pull_request.number }}
+          else
+            # For same repository, fetch from origin
+            git fetch origin $HEAD_REF:pr-${{ github.event.pull_request.number }}
+          fi
           
           # Get list of modified files (added, modified, renamed)
           git diff --name-only --diff-filter=AMR "$BASE_SHA" "$HEAD_SHA" > /tmp/modified_files.txt || true
@@ -60,7 +73,8 @@ jobs:
           
           # Read the list of modified files
           while IFS= read -r file; do
-            if [ -f "$file" ]; then
+            # Check if the file exists in the PR head commit
+            if git cat-file -e "${{ github.event.pull_request.head.sha }}:$file" 2>/dev/null; then
               # Get just the filename
               filename=$(basename "$file")
               
@@ -69,9 +83,11 @@ jobs:
                 echo "Warning: Working Folder/$filename already exists, will be overwritten"
               fi
               
-              # Copy to Working Folder
+              # Copy from PR head to Working Folder
               echo "Copying $file to Working Folder/$filename"
-              cp "$file" "Working Folder/$filename"
+              git show "${{ github.event.pull_request.head.sha }}:$file" > "Working Folder/$filename"
+            else
+              echo "Warning: $file not found in PR head commit"
             fi
           done < /tmp/modified_files.txt
       
@@ -83,11 +99,12 @@ jobs:
           else
             git add "Working Folder/"
             git commit -m "Auto-copy PR #${{ github.event.pull_request.number }} files to Working Folder"
-            git push origin ${{ github.event.pull_request.head.ref }}
-            echo "Changes committed and pushed"
+            git push origin ${{ github.event.pull_request.base.ref }}
+            echo "Changes committed and pushed to ${{ github.event.pull_request.base.ref }}"
           fi
       
       - name: Comment on PR
+        continue-on-error: true
         uses: actions/github-script@v6
         with:
           script: |
