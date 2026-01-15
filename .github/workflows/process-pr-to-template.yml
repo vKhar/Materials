@@ -82,6 +82,9 @@ jobs:
           
           # Copy each changed file to Submissions folder
           while IFS= read -r file; do
+            # Skip empty lines
+            [ -z "$file" ] && continue
+            
             # Check if file exists in pr branch
             if git cat-file -e pr-${{ github.event.pull_request.number }}:"$file" 2>/dev/null; then
               echo "Copying $file to Submissions/"
@@ -89,6 +92,8 @@ jobs:
               filename=$(basename "$file")
               # Copy from pr branch
               git show pr-${{ github.event.pull_request.number }}:"$file" > "Submissions/$filename"
+            else
+              echo "Skipping $file (deleted or not a file)"
             fi
           done < changed_files.txt
       
