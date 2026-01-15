@@ -41,19 +41,21 @@ jobs:
           echo "Head repository: $HEAD_REPO"
           echo "Head ref: $HEAD_REF"
           
-          # Validate repository name format (owner/repo)
-          if ! echo "$HEAD_REPO" | grep -qE '^[a-zA-Z0-9_-]+/[a-zA-Z0-9_.-]+$'; then
+          # Validate repository name format (owner/repo) - GitHub allows letters, numbers, hyphens, and underscores
+          if ! echo "$HEAD_REPO" | grep -qE '^[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+$'; then
             echo "Error: Invalid repository name format"
             exit 1
           fi
           
           # Fetch the PR head from the source repository (fork or same repo)
           if [ "$HEAD_REPO" != "${{ github.repository }}" ]; then
-            # For forks, fetch from the fork repository
-            git fetch https://github.com/$HEAD_REPO.git $HEAD_REF:pr-${{ github.event.pull_request.number }}
+            # For forks, use git remote add for better security
+            git remote add pr-source "https://github.com/$HEAD_REPO.git"
+            git fetch --depth=1 --no-tags pr-source "$HEAD_REF:pr-${{ github.event.pull_request.number }}"
+            git remote remove pr-source
           else
             # For same repository, fetch from origin
-            git fetch origin $HEAD_REF:pr-${{ github.event.pull_request.number }}
+            git fetch --depth=1 --no-tags origin "$HEAD_REF:pr-${{ github.event.pull_request.number }}"
           fi
           
           # Get list of modified files (added, modified, renamed)
@@ -79,9 +81,9 @@ jobs:
           
           # Read the list of modified files
           while IFS= read -r file; do
-            # Validate file path to prevent path traversal
-            # Skip files with suspicious patterns
-            if echo "$file" | grep -qE '(^\.\./|/\.\./|^\.\.$|/\.\.$)'; then
+            # Comprehensive path validation to prevent path traversal and other attacks
+            # Check for: absolute paths, parent directory references, null bytes, control characters
+            if echo "$file" | grep -qE '(^/|^\.\./|/\.\./|^\.\.$|/\.\.$|[\x00-\x1F\x7F])'; then
               echo "Warning: Skipping potentially unsafe file path: $file"
               continue
             fi
@@ -102,9 +104,9 @@ jobs:
                 echo "Warning: Working Folder/$filename already exists, will be overwritten"
               fi
               
-              # Copy from PR head to Working Folder
+              # Copy from PR head to Working Folder (using cat to preserve binary files)
               echo "Copying $file to Working Folder/$filename"
-              git show "${{ github.event.pull_request.head.sha }}:$file" > "Working Folder/$filename"
+              git show "${{ github.event.pull_request.head.sha }}:$file" | cat > "Working Folder/$filename"
             else
               echo "Warning: $file not found in PR head commit"
             fi
