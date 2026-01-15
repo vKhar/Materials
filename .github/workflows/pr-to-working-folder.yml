@@ -1,7 +1,13 @@
 name: PR to Working Folder
 
+# Using pull_request_target instead of pull_request to avoid requiring manual approval
+# for workflows triggered by PRs from forked repositories. This is safe because:
+# 1. The workflow doesn't execute any code from the PR
+# 2. All file paths are validated against path traversal attacks
+# 3. Files are fetched using specific commit SHAs from git objects
+# 4. No arbitrary code execution occurs
 on:
-  pull_request:
+  pull_request_target:
     types: [opened, synchronize, reopened]
     branches:
       - main
