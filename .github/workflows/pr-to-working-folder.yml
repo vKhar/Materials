@@ -153,6 +153,7 @@ jobs:
             }
       
       - name: Auto-merge PR
+        if: steps.get-files.outputs.file_count > 0
         continue-on-error: true
         uses: actions/github-script@v6
         with:
