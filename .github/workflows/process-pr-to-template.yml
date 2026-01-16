@@ -16,10 +16,10 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - name: Checkout base branch
+      - name: Checkout Submit branch
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.base.ref }}
+          ref: Submit
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
       
@@ -27,18 +27,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-      
-      - name: Generate branch name with timestamp
-        id: branch-name
-        run: |
-          # Format: tmp-ddmmyy_hhmm
-          BRANCH_NAME="tmp-$(date -u +"%d%m%y_%H%M")"
-          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
-          echo "Branch name: $BRANCH_NAME"
-      
-      - name: Create new branch from base branch
-        run: |
-          git checkout -b ${{ steps.branch-name.outputs.branch_name }}
       
       - name: Fetch PR changes
         env:
@@ -73,27 +61,31 @@ jobs:
           BASE_REF=${{ github.event.pull_request.base.ref }}
           PR_AUTHOR=${{ github.event.pull_request.user.login }}
           
+          # Get current date in yymmdd format
+          DATE_SUFFIX=$(date -u +"%y%m%d")
+          
           # Get the list of changed files in the PR
           git diff --name-only origin/$BASE_REF...pr-$PR_NUMBER > changed_files.txt
           
           echo "Changed files:"
           cat changed_files.txt
           echo "PR Author: $PR_AUTHOR"
+          echo "Date Suffix: $DATE_SUFFIX"
           
-          # Checkout back to our new branch
-          git checkout ${{ steps.branch-name.outputs.branch_name }}
+          # Checkout back to Submit branch
+          git checkout Submit
           
-          # Ensure Submissions directory exists
-          mkdir -p Submissions
+          # Ensure Submissions/username directory exists
+          mkdir -p "Submissions/$PR_AUTHOR"
           
-          # Copy each changed file to Submissions folder
+          # Copy each changed file to Submissions/username folder
           while IFS= read -r file; do
             # Skip empty lines
             [ -z "$file" ] && continue
             
             # Check if file exists in pr branch
             if git cat-file -e pr-$PR_NUMBER:"$file" 2>/dev/null; then
-              echo "Copying $file to Submissions/"
+              echo "Copying $file to Submissions/$PR_AUTHOR/"
               # Get just the filename without path
               filename=$(basename "$file")
               # Extract filename and extension
@@ -101,20 +93,20 @@ jobs:
                 # File has an extension
                 base_name="${filename%.*}"
                 extension="${filename##*.}"
-                new_filename="${base_name}_${PR_AUTHOR}.${extension}"
+                new_filename="${base_name}-${DATE_SUFFIX}.${extension}"
               else
                 # File has no extension
-                new_filename="${filename}_${PR_AUTHOR}"
+                new_filename="${filename}-${DATE_SUFFIX}"
               fi
               echo "Renaming to: $new_filename"
-              # Copy from pr branch with new name
-              git show pr-$PR_NUMBER:"$file" > "Submissions/$new_filename"
+              # Copy from pr branch with new name (overwrites if exists)
+              git show pr-$PR_NUMBER:"$file" > "Submissions/$PR_AUTHOR/$new_filename"
             else
               echo "Skipping $file (deleted or not a file)"
             fi
           done < changed_files.txt
       
-      - name: Commit changes
+      - name: Commit changes to Submit branch
         run: |
           git add Submissions/
           
@@ -122,9 +114,9 @@ jobs:
           if git diff --staged --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "Add submissions from PR #${{ github.event.pull_request.number }}"
-            git push origin ${{ steps.branch-name.outputs.branch_name }}
-            echo "Changes committed and pushed"
+            git commit -m "Add submissions from PR #${{ github.event.pull_request.number }} by @${{ github.event.pull_request.user.login }}"
+            git push origin Submit
+            echo "Changes committed and pushed to Submit branch"
           fi
       
       - name: Close Pull Request
@@ -133,5 +125,5 @@ jobs:
         run: |
           # Close the PR with a comment
           gh pr close ${{ github.event.pull_request.number }} \
-            --comment "Automated processing complete. Files have been copied to the Submissions folder in branch ${{ steps.branch-name.outputs.branch_name }}. This PR is now closed." \
+            --comment "Automated processing complete. Files have been copied to Submissions/${{ github.event.pull_request.user.login }}/ in the Submit branch. This PR is now closed." \
             --repo ${{ github.repository }}
