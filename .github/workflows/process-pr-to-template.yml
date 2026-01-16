@@ -6,8 +6,6 @@ name: Process PR to Template Branch
 on:
   pull_request_target:
     types: [opened, synchronize, reopened]
-    branches:
-      - Template
 
 permissions:
   contents: write
@@ -18,10 +16,10 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - name: Checkout Template branch
+      - name: Checkout base branch
         uses: actions/checkout@v4
         with:
-          ref: Template
+          ref: ${{ github.event.pull_request.base.ref }}
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
       
@@ -38,7 +36,7 @@ jobs:
           echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
           echo "Branch name: $BRANCH_NAME"
       
-      - name: Create new branch from Template
+      - name: Create new branch from base branch
         run: |
           git checkout -b ${{ steps.branch-name.outputs.branch_name }}
       
@@ -72,9 +70,10 @@ jobs:
       - name: Copy modified files to Submissions folder
         run: |
           PR_NUMBER=${{ github.event.pull_request.number }}
+          BASE_REF=${{ github.event.pull_request.base.ref }}
           
           # Get the list of changed files in the PR
-          git diff --name-only origin/Template...pr-$PR_NUMBER > changed_files.txt
+          git diff --name-only origin/$BASE_REF...pr-$PR_NUMBER > changed_files.txt
           
           echo "Changed files:"
           cat changed_files.txt
