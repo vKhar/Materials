@@ -31,8 +31,8 @@ jobs:
       - name: Generate branch name with timestamp
         id: branch-name
         run: |
-          # Format: ddmmyy_hhmm
-          BRANCH_NAME=$(date -u +"%d%m%y_%H%M")
+          # Format: tmp-ddmmyy_hhmm
+          BRANCH_NAME="tmp-$(date -u +"%d%m%y_%H%M")"
           echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
           echo "Branch name: $BRANCH_NAME"
       
@@ -71,12 +71,14 @@ jobs:
         run: |
           PR_NUMBER=${{ github.event.pull_request.number }}
           BASE_REF=${{ github.event.pull_request.base.ref }}
+          PR_AUTHOR=${{ github.event.pull_request.user.login }}
           
           # Get the list of changed files in the PR
           git diff --name-only origin/$BASE_REF...pr-$PR_NUMBER > changed_files.txt
           
           echo "Changed files:"
           cat changed_files.txt
+          echo "PR Author: $PR_AUTHOR"
           
           # Checkout back to our new branch
           git checkout ${{ steps.branch-name.outputs.branch_name }}
@@ -92,10 +94,21 @@ jobs:
             # Check if file exists in pr branch
             if git cat-file -e pr-$PR_NUMBER:"$file" 2>/dev/null; then
               echo "Copying $file to Submissions/"
-              # Get just the filename without path (per spec: files in Submissions folder)
+              # Get just the filename without path
               filename=$(basename "$file")
-              # Copy from pr branch
-              git show pr-$PR_NUMBER:"$file" > "Submissions/$filename"
+              # Extract filename and extension
+              if [[ "$filename" == *.* ]]; then
+                # File has an extension
+                base_name="${filename%.*}"
+                extension="${filename##*.}"
+                new_filename="${base_name}_${PR_AUTHOR}.${extension}"
+              else
+                # File has no extension
+                new_filename="${filename}_${PR_AUTHOR}"
+              fi
+              echo "Renaming to: $new_filename"
+              # Copy from pr branch with new name
+              git show pr-$PR_NUMBER:"$file" > "Submissions/$new_filename"
             else
               echo "Skipping $file (deleted or not a file)"
             fi
