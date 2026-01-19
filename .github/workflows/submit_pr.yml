@@ -12,7 +12,8 @@ permissions:
   pull-requests: write
 
 jobs:
-  process-pr:
+  process-submit-pr:
+    # Condition 1: Process PRs with "submit" in title (case insensitive)
     if: contains(github.event.pull_request.title, 'submit')
     runs-on: ubuntu-latest
     
@@ -112,4 +113,21 @@ jobs:
           # Close the PR with a comment
           gh pr close ${{ github.event.pull_request.number }} \
             --comment "Automated processing complete. Files have been copied to Submissions/${{ github.event.pull_request.user.login }}/ in the Submit branch. This PR is now closed." \
+            --repo ${{ github.repository }}
+  
+  auto-close-pr:
+    # Condition 3: Auto-close PRs that don't contain "submit" or "PR" (case insensitive)
+    if: |
+      !contains(github.event.pull_request.title, 'submit') &&
+      !contains(github.event.pull_request.title, 'pr')
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Close Pull Request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Close the PR without any action
+          gh pr close ${{ github.event.pull_request.number }} \
+            --comment "This PR has been automatically closed as it does not meet the processing criteria. PRs should contain 'submit' in the title for submission processing, or 'PR' to keep open for manual review." \
             --repo ${{ github.repository }}
