@@ -1,0 +1,128 @@
+name: Process PR to Submissions
+
+# Security note: This workflow uses pull_request_target to have write permissions
+# for pushing new branches. The workflow only reads files from PRs and does not
+# execute any code from them, making it safe to use with untrusted forks.
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  process-pr:
+    if: contains(lower(github.event.pull_request.title), 'submit')
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Submit branch
+        uses: actions/checkout@v4
+        with:
+          ref: Submit
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      
+      - name: Fetch PR changes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Get PR number and head repository
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          HEAD_REPO=${{ github.event.pull_request.head.repo.full_name }}
+          HEAD_REF=${{ github.event.pull_request.head.ref }}
+          HEAD_SHA=${{ github.event.pull_request.head.sha }}
+          
+          echo "PR Number: $PR_NUMBER"
+          echo "Head Repo: $HEAD_REPO"
+          echo "Head Ref: $HEAD_REF"
+          echo "Head SHA: $HEAD_SHA"
+          
+          # If it's from a fork, add the fork as a remote
+          if [ "$HEAD_REPO" != "${{ github.repository }}" ]; then
+            echo "PR is from a fork, adding remote"
+            git remote add fork https://github.com/$HEAD_REPO.git
+            git fetch fork $HEAD_REF
+            git checkout -b pr-$PR_NUMBER fork/$HEAD_REF
+          else
+            echo "PR is from same repository"
+            git fetch origin pull/$PR_NUMBER/head:pr-$PR_NUMBER
+            git checkout pr-$PR_NUMBER
+          fi
+      
+      - name: Copy modified files to Submissions folder
+        run: |
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          BASE_REF=${{ github.event.pull_request.base.ref }}
+          PR_AUTHOR=${{ github.event.pull_request.user.login }}
+          
+          # Get the list of changed files in the PR
+          git diff --name-only origin/$BASE_REF...pr-$PR_NUMBER > changed_files.txt
+          
+          echo "Changed files:"
+          cat changed_files.txt
+          echo "PR Author: $PR_AUTHOR"
+          
+          # Checkout back to Submit branch
+          git checkout Submit
+          
+          # Ensure Submissions/username directory exists
+          mkdir -p "Submissions/$PR_AUTHOR"
+          
+          # Copy each changed file to Submissions/username folder
+          while IFS= read -r file; do
+            # Skip empty lines
+            [ -z "$file" ] && continue
+            
+            # Check if file exists in pr branch
+            if git cat-file -e pr-$PR_NUMBER:"$file" 2>/dev/null; then
+              echo "Copying $file to Submissions/$PR_AUTHOR/"
+              filename=$(basename "$file")
+              echo "Writing to: $filename"
+              # Copy from pr branch with original name (overwrites if exists)
+              git show pr-$PR_NUMBER:"$file" > "Submissions/$PR_AUTHOR/$filename"
+            else
+              echo "Skipping $file (deleted or not a file)"
+            fi
+          done < changed_files.txt
+      
+      - name: Commit changes to Submit branch
+        run: |
+          git add Submissions/
+          
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Add submissions from PR #${{ github.event.pull_request.number }} by @${{ github.event.pull_request.user.login }}"
+            git push origin Submit
+            echo "Changes committed and pushed to Submit branch"
+          fi
+      
+      - name: Close Pull Request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Close the PR with a comment
+          gh pr close ${{ github.event.pull_request.number }} \
+            --comment "Automated processing complete. Files have been copied to Submissions/${{ github.event.pull_request.user.login }}/ in the Submit branch. This PR is now closed." \
+            --repo ${{ github.repository }}
+  
+  close-non-submit-pr:
+    if: "!contains(lower(github.event.pull_request.title), 'submit')"
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Close Pull Request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr close ${{ github.event.pull_request.number }} \
+            --comment "This pull request has been automatically closed because the title does not contain the word 'submit' (case-insensitive). To have your submission processed, please create a new PR with 'submit' in the title (e.g., 'Submit: Exercise 02 solutions')." \
+            --repo ${{ github.repository }}
