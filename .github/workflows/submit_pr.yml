@@ -113,3 +113,17 @@ jobs:
           gh pr close ${{ github.event.pull_request.number }} \
             --comment "Automated processing complete. Files have been copied to Submissions/${{ github.event.pull_request.user.login }}/ in the Submit branch. This PR is now closed." \
             --repo ${{ github.repository }}
+  
+  close-non-submit-pr:
+    if: "!contains(github.event.pull_request.title, 'submit')"
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Close Pull Request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Close the PR with an explanation
+          gh pr close ${{ github.event.pull_request.number }} \
+            --comment "This pull request has been automatically closed because the title does not contain the word 'submit'. To have your submission processed, please create a new PR with 'submit' in the title (e.g., 'Submit: Exercise 02 solutions')." \
+            --repo ${{ github.repository }}
