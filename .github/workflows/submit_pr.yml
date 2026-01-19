@@ -14,7 +14,7 @@ permissions:
 jobs:
   process-submit-pr:
     # Condition 1: Process PRs with "submit" in title (case insensitive)
-    if: contains(toLower(github.event.pull_request.title), 'submit')
+    if: contains(github.event.pull_request.title, 'submit')
     runs-on: ubuntu-latest
     
     steps:
@@ -118,8 +118,8 @@ jobs:
   auto-close-pr:
     # Condition 3: Auto-close PRs that don't contain "submit" or "PR" (case insensitive)
     if: |
-      !contains(toLower(github.event.pull_request.title), 'submit') &&
-      !contains(toLower(github.event.pull_request.title), 'pr')
+      !contains(github.event.pull_request.title, 'submit') &&
+      !contains(github.event.pull_request.title, 'pr')
     runs-on: ubuntu-latest
     
     steps:
