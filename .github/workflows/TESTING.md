@@ -73,7 +73,7 @@ The workflow (`submit_pr.yml`) has three distinct behaviors:
 
 ### First-Time Contributor Testing
 When testing as a first-time contributor:
-1. The workflow will show as "pending" in Actions tab
+1. The workflow will show as "pending" in the Actions tab
 2. A maintainer must click "Approve and run"
 3. After approval, workflow executes according to the rules above
 
@@ -104,11 +104,14 @@ For contributors who have had previous PRs approved:
 ## Workflow Security
 
 The workflow uses `pull_request_target` which:
-- Runs in the context of the base repository
-- Has write permissions to push to Submit branch
-- Requires approval for first-time contributors
+- Runs in the context of the base repository (not the fork)
+- Has elevated permissions: write access to Submit branch and ability to close PRs
+- Requires approval for first-time contributors to prevent malicious actors from:
+  - Modifying workflow files to steal secrets
+  - Pushing unwanted content to the Submit branch
+  - Abusing PR close permissions
 
-This prevents malicious code from running with elevated permissions while still allowing legitimate submissions.
+This security model allows legitimate submissions while protecting the repository.
 
 ## Manual Workflow Approval Process
 
