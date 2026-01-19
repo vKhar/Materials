@@ -14,10 +14,8 @@ permissions:
 jobs:
   process-pr:
     if: >-
-      ${{
-        github.event.pull_request.head.repo.full_name != github.repository &&
-        contains(tolower(github.event.pull_request.title), 'submit')
-      }}
+      github.event.pull_request.head.repo.full_name != github.repository &&
+      contains(lower(github.event.pull_request.title), 'submit')
     runs-on: ubuntu-latest
     
     steps:
