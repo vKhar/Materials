@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   process-pr:
-    if: contains(lower(github.event.pull_request.title), 'submit')
+    if: contains(github.event.pull_request.title, 'submit')
     runs-on: ubuntu-latest
     
     steps:
