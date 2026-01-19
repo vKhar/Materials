@@ -119,7 +119,7 @@ jobs:
     # Condition 3: Auto-close PRs that don't contain "submit" or "PR" (case insensitive)
     if: |
       !contains(toLower(github.event.pull_request.title), 'submit') &&
-      !contains(github.event.pull_request.title, 'PR')
+      !contains(toLower(github.event.pull_request.title), 'pr')
     runs-on: ubuntu-latest
     
     steps:
